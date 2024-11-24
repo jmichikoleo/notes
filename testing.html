@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Manager</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+        .folder-manager {
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .note-preview {
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+        .popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .popup-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+            width: 400px;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .close-btn:hover {
+            color: red;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+<header class="bg-gray-800 text-white p-4">
+    <h1 class="text-center text-2xl">Note Manager</h1>
+</header>
+
+<div class="flex">
+    <div class="folder-manager bg-gray-200 w-1/3 p-4">
+        <h2 class="text-xl font-bold mb-4">Folders</h2>
+        <ul id="folder-list" class="space-y-2"></ul>
+        <button class="mt-4 p-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="showPopup('input')">Add Note</button>
+    </div>
+
+    <div class="note-preview w-2/3 p-4">
+        <h2 id="preview-title" class="text-xl font-bold">Select a folder or note to preview</h2>
+        <div id="preview-content" class="mt-4"></div>
+    </div>
+</div>
+
+<div id="popup" class="popup flex">
+    <div class="popup-content">
+        <button class="close-btn" onclick="hidePopup()">&times;</button>
+    </div>
+</div>
+
+<script>
+    function showPopup(type, title = '', content = '') {
+        const popup = document.getElementById('popup');
+        const popupContent = popup.querySelector('.popup-content');
+
+        if (type === 'input') {
+            popupContent.innerHTML = `
+                <button class="close-btn" onclick="hidePopup()">&times;</button>
+                <h2 class="text-xl font-bold mb-4">Add Note</h2>
+                <input type="text" id="popup-note-title" placeholder="Note Title" class="w-full mb-2 p-2 border border-gray-300 rounded">
+                <textarea id="popup-note-content" rows="4" placeholder="Note Content" class="w-full mb-2 p-2 border border-gray-300 rounded"></textarea>
+                <input type="text" id="popup-note-path" placeholder="Path (e.g., /work/project1)" class="w-full mb-2 p-2 border border-gray-300 rounded">
+                <label class="inline-flex items-center mb-4">
+                    <input type="checkbox" id="popup-is-folder" class="form-checkbox h-5 w-5 text-gray-600">
+                    <span class="ml-2 text-gray-700">Make this a folder</span>
+                </label>
+                <div class="flex justify-end">
+                    <button class="mr-2 p-2 bg-gray-300 rounded hover:bg-gray-400" onclick="hidePopup()">Cancel</button>
+                    <button class="p-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="addNote()">Add Note</button>
+                </div>
+            `;
+        } else if (type === 'note') {
+            popupContent.innerHTML = `
+                <button class="close-btn" onclick="hidePopup()">&times;</button>
+                <h2 class="text-xl font-bold mb-4">${title}</h2>
+                <p class="text-gray-700">${content}</p>
+                <div class="flex justify-end mt-4">
+                    <button class="p-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="hidePopup()">Close</button>
+                </div>
+            `;
+        }
+
+        popup.style.display = 'flex';
+    }
+
+    function hidePopup() {
+        const popup = document.getElementById('popup');
+        popup.style.display = 'none';
+    }
+
+    function addNote() {
+        const title = document.getElementById('popup-note-title').value;
+        const content = document.getElementById('popup-note-content').value;
+        const path = document.getElementById('popup-note-path').value;
+        const isFolder = document.getElementById('popup-is-folder').checked;
+
+        if (title && path) {
+            const folderList = document.getElementById('folder-list');
+            const pathArray = path.split('/');
+            let currentList = folderList;
+
+            pathArray.forEach(segment => {
+                if (segment) {
+                    let existingItem = Array.from(currentList.children).find(item => item.dataset.path === segment);
+                    if (!existingItem) {
+                        const newItem = document.createElement('li');
+                        newItem.dataset.path = segment;
+                        newItem.innerHTML = `
+                            <div class="flex items-center cursor-pointer" onclick="showFolderPreview(this, '${segment}')">
+                                <i class="fas fa-folder mr-2"></i>
+                                <span>${segment}</span>
+                            </div>
+                            <ul class="ml-4 hidden"></ul>
+                        `;
+                        currentList.appendChild(newItem);
+                        existingItem = newItem;
+                    }
+                    currentList = existingItem.querySelector('ul');
+                }
+            });
+
+            const note = document.createElement('li');
+            note.innerHTML = `
+                <div class="flex items-center cursor-pointer" onclick="previewNote('${title}', '${content}')">
+                    <i class="fas fa-file-alt mr-2"></i>
+                    <span>${title}</span>
+                </div>
+            `;
+            currentList.appendChild(note);
+
+            hidePopup();
+        } else {
+            alert('Please fill in all required fields.');
+        }
+    }
+
+    function previewNote(title, content) {
+        const previewContent = document.getElementById('preview-content');
+        previewContent.innerHTML = `
+            <div class="p-4 bg-white rounded shadow">
+                <h3 class="text-lg font-bold mb-2">${title}</h3>
+                <p class="text-gray-700 mb-4">${content}</p>
+                <button class="p-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="showPopup('note', '${title}', '${content}')">View Full Note</button>
+            </div>
+        `;
+    }
+
+    function showFolderPreview(element, folderName) {
+        const previewTitle = document.getElementById('preview-title');
+        const previewContent = document.getElementById('preview-content');
+
+        previewTitle.textContent = `Contents of: ${folderName}`;
+        previewContent.innerHTML = '';
+
+        const sublist = element.nextElementSibling;
+        if (sublist) {
+            sublist.classList.toggle('hidden');
+            Array.from(sublist.children).forEach(item => {
+                previewContent.appendChild(item.cloneNode(true));
+            });
+        }
+    }
+</script>
+
+</body>
+</html>
